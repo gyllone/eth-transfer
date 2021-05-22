@@ -31,6 +31,7 @@ func main() {
 		},
 		Commands: []*cli.Command{
 			sendETHCmd,
+			sendERC20Cmd,
 		},
 	}
 
