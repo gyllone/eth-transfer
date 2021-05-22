@@ -7,13 +7,6 @@ import (
 	"math/big"
 )
 
-//const (
-//	Precision = uint64(1_000_000_000_000_000_000)
-//)
-const (
-	DefaultPrecision = 18
-)
-
 type SendInfo struct {
 	To 			common.Address
 	Amount 		*big.Int
@@ -29,4 +22,13 @@ func NewSendInfo(to common.Address, amount string, prec int64) (*SendInfo, error
 		To:     to,
 		Amount: value.Num(),
 	}, nil
+}
+
+type SwapInfo struct {
+	Contract	common.Address
+	AmountIn 	*big.Int
+	AmountOut 	*big.Int
+	Path 		[]common.Address
+	To 			common.Address
+	Deadline 	*big.Int
 }

@@ -142,7 +142,7 @@ var sendERC20Cmd = &cli.Command{
 		if err != nil {
 			return err
 		} else {
-			return sender.SendERC20Token(cctx.Context, contract, si)
+			return sender.SendERC20(cctx.Context, contract, si)
 		}
 	},
 }

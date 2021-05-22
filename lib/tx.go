@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
@@ -18,6 +19,7 @@ var (
 	SendSig, _ = hex.DecodeString("a9059cbb")
 	ApproveSig, _ = hex.DecodeString("095ea7b3")
 	BalanceSig, _ = hex.DecodeString("70a08231")
+	SwapSig, _ = hex.DecodeString("38ed1739")
 )
 
 type Sender struct {
@@ -57,48 +59,19 @@ func NewSender(ctx context.Context, url string, pk *ecdsa.PrivateKey, multiplier
 	}, nil
 }
 
-func (s *Sender) GetETHBalance(ctx context.Context, addr common.Address) (*big.Int, error) {
+func (s *Sender) GetPendingETHBalance(ctx context.Context, addr common.Address) (*big.Int, error) {
 	return ethclient.NewClient(s.client).PendingBalanceAt(ctx, addr)
 }
 
-func (s *Sender) SendETH(ctx context.Context, si *SendInfo) error {
-	//gasLimit, err := ethclient.NewClient(s.client).EstimateGas(ctx, ethereum.CallMsg{
-	//	From:       s.from,
-	//	To:         &si.To,
-	//	Value:      si.Amount,
-	//})
-	//if err != nil {
-	//	return err
-	//}
-
-	gasPrice, err := ethclient.NewClient(s.client).SuggestGasPrice(ctx)
-	if err != nil {
-		return err
-	}
-	gp := new(big.Rat).SetInt(gasPrice)
-	gp.Mul(gp, s.multiplier)
-
-	tx, err := s.sign(types.NewTx(&types.LegacyTx{
-		Nonce:    s.nonce.Load(),
-		To:       &si.To,
-		Value:    si.Amount,
-		Gas:      21_000,
-		GasPrice: gp.Num(),
-	}))
-	if err != nil {
-		return err
-	}
-
-	err = ethclient.NewClient(s.client).SendTransaction(ctx, tx)
-	if err != nil {
-		return err
-	} else {
-		s.nonce.Add(1)
-		return nil
-	}
+func (s *Sender) GetETHBalance(ctx context.Context, addr common.Address) (*big.Int, error) {
+	return ethclient.NewClient(s.client).BalanceAt(ctx, addr, nil)
 }
 
-func (s *Sender) SendERC20Token(ctx context.Context, contract common.Address, si *SendInfo) error {
+func (s *Sender) SendETH(ctx context.Context, si *SendInfo) error {
+	return s.sendMessage(ctx, si.To, si.Amount, nil)
+}
+
+func (s *Sender) SendERC20(ctx context.Context, contract common.Address, si *SendInfo) error {
 	// ERC20 data encode
 	buffer1 := make([]byte, 32)
 	copy(buffer1[12:], si.To.Bytes())
@@ -109,41 +82,22 @@ func (s *Sender) SendERC20Token(ctx context.Context, contract common.Address, si
 	data = append(data, buffer1...)
 	data = append(data, buffer2...)
 
-	gasLimit, err := ethclient.NewClient(s.client).EstimateGas(ctx, ethereum.CallMsg{
-		From:   s.from,
-		To:     &contract,
-		Data: 	data,
-	})
-	if err != nil {
-		return err
-	}
-
-	gasPrice, err := ethclient.NewClient(s.client).SuggestGasPrice(ctx)
-	if err != nil {
-		return err
-	}
-	gp := new(big.Rat).SetInt(gasPrice)
-	gp.Mul(gp, s.multiplier)
-
-	tx, err := s.sign(types.NewTx(&types.LegacyTx{
-		Nonce:    s.nonce.Load(),
-		To:       &contract,
-		Gas:      gasLimit,
-		GasPrice: gp.Num(),
-		Data:  	  data,
-	}))
-	if err != nil {
-		return err
-	}
-
-	err = ethclient.NewClient(s.client).SendTransaction(ctx, tx)
-	if err != nil {
-		return err
-	} else {
-		s.nonce.Add(1)
-		return nil
-	}
+	return s.sendMessage(ctx, contract, nil, data)
 }
+
+func (s *Sender) ApproveERC20(ctx context.Context, contract, spender common.Address) error {
+	buffer1 := make([]byte, 32)
+	copy(buffer1[12:], spender.Bytes())
+	buffer2 := bytes.Repeat([]byte{255}, 32)
+	data := make([]byte, 4, 4+32*2)
+	copy(data, SendSig)
+	data = append(data, buffer1...)
+	data = append(data, buffer2...)
+
+	return s.sendMessage(ctx, contract, nil, data)
+}
+
+//func (s *Sender) SwapERC20(ctx context.Context, contract, quote, base common.Address, )
 
 func (s *Sender) GetERC20Balance(ctx context.Context, contract, addr common.Address) (*big.Int, error) {
 	// ERC20 data encode
@@ -206,4 +160,57 @@ func (s *Sender) BatchSendETH(ctx context.Context, sis []*SendInfo) error {
 		s.nonce.Store(nonce)
 		return nil
 	}
+}
+
+func (s *Sender) sendMessage(ctx context.Context, to common.Address, value *big.Int, data []byte) error {
+	gasLimit, err := ethclient.NewClient(s.client).EstimateGas(ctx, ethereum.CallMsg{
+		From:   s.from,
+		To:     &to,
+		Data: 	data,
+	})
+	if err != nil {
+		return err
+	}
+
+	gasPrice, err := ethclient.NewClient(s.client).SuggestGasPrice(ctx)
+	if err != nil {
+		return err
+	}
+	gp := new(big.Rat).SetInt(gasPrice)
+	gp.Mul(gp, s.multiplier)
+
+	tx, err := s.sign(types.NewTx(&types.LegacyTx{
+		Nonce:    s.nonce.Load(),
+		To:       &to,
+		Gas:      gasLimit,
+		GasPrice: gp.Num(),
+		Data:  	  data,
+	}))
+	if err != nil {
+		return err
+	}
+
+	err = ethclient.NewClient(s.client).SendTransaction(ctx, tx)
+	if err != nil {
+		return err
+	} else {
+		s.nonce.Add(1)
+		return nil
+	}
+}
+
+func (s *Sender) pendingCallContract(ctx context.Context, contract common.Address, data []byte) ([]byte, error) {
+	return ethclient.NewClient(s.client).PendingCallContract(ctx, ethereum.CallMsg{
+		From:   s.from,
+		To:     &contract,
+		Data: 	data,
+	})
+}
+
+func (s *Sender) callContract(ctx context.Context, contract common.Address, data []byte) ([]byte, error) {
+	return ethclient.NewClient(s.client).CallContract(ctx, ethereum.CallMsg{
+		From:   s.from,
+		To:     &contract,
+		Data: 	data,
+	}, nil)
 }
