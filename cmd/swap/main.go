@@ -150,11 +150,11 @@ func main() {
 			Deadline:     big.NewInt(1622476800),
 		})
 		if err != nil {
-			fmt.Printf("%s swap erc20 balance failed: %v\n", sender.From(), err)
+			fmt.Printf("%s swap erc20 failed: %v\n", sender.From(), err)
 			return
 		} else {
 			fmt.Printf("%s swap erc20 success\n", sender.From())
-			<-time.After(time.Duration(30 + rand.Int63n(170)) * time.Second)
+			<-time.After(time.Duration(300 + rand.Int63n(1700)) * time.Second)
 		}
 	}
 }
