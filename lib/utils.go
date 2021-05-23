@@ -25,10 +25,9 @@ func NewSendInfo(to common.Address, amount string, prec int64) (*SendInfo, error
 }
 
 type SwapInfo struct {
-	Contract	common.Address
-	AmountIn 	*big.Int
-	AmountOut 	*big.Int
-	Path 		[]common.Address
-	To 			common.Address
-	Deadline 	*big.Int
+	AmountIn 		*big.Int
+	AmountOutMin 	*big.Int
+	Path 			[]common.Address
+	To 				common.Address
+	Deadline 		*big.Int
 }

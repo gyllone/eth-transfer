@@ -59,6 +59,10 @@ func NewSender(ctx context.Context, url string, pk *ecdsa.PrivateKey, multiplier
 	}, nil
 }
 
+func (s *Sender) From() common.Address {
+	return s.from
+}
+
 func (s *Sender) GetPendingETHBalance(ctx context.Context, addr common.Address) (*big.Int, error) {
 	return ethclient.NewClient(s.client).PendingBalanceAt(ctx, addr)
 }
@@ -97,7 +101,35 @@ func (s *Sender) ApproveERC20(ctx context.Context, contract, spender common.Addr
 	return s.sendMessage(ctx, contract, nil, data)
 }
 
-//func (s *Sender) SwapERC20(ctx context.Context, contract, quote, base common.Address, )
+func (s *Sender) SwapERC20(ctx context.Context, contract common.Address, si *SwapInfo) error {
+	buffer1 := make([]byte, 32)
+	si.AmountIn.FillBytes(buffer1)
+	buffer2 := make([]byte, 32)
+	si.AmountOutMin.FillBytes(buffer2)
+	buffer3 := make([]byte, 32)
+	buffer3[31] = 0xa0
+	buffer4 := make([]byte, 32)
+	copy(buffer4[12:], si.To.Bytes())
+	buffer5 := make([]byte, 32)
+	si.Deadline.FillBytes(buffer5)
+	buffer6 := make([]byte, 32)
+	buffer6[31] = byte(len(si.Path))
+	buffer7 := make([]byte, 32*len(si.Path))
+	for i, p := range si.Path {
+		copy(buffer7[12+32*i:], p.Bytes())
+	}
+	data := make([]byte, 4, 4+32*(6+len(si.Path)))
+	copy(data, SwapSig)
+	data = append(data, buffer1...)
+	data = append(data, buffer2...)
+	data = append(data, buffer3...)
+	data = append(data, buffer4...)
+	data = append(data, buffer5...)
+	data = append(data, buffer6...)
+	data = append(data, buffer7...)
+
+	return s.sendMessage(ctx, contract, nil, data)
+}
 
 func (s *Sender) GetERC20Balance(ctx context.Context, contract, addr common.Address) (*big.Int, error) {
 	// ERC20 data encode
@@ -166,6 +198,7 @@ func (s *Sender) sendMessage(ctx context.Context, to common.Address, value *big.
 	gasLimit, err := ethclient.NewClient(s.client).EstimateGas(ctx, ethereum.CallMsg{
 		From:   s.from,
 		To:     &to,
+		Value:  value,
 		Data: 	data,
 	})
 	if err != nil {
@@ -182,6 +215,7 @@ func (s *Sender) sendMessage(ctx context.Context, to common.Address, value *big.
 	tx, err := s.sign(types.NewTx(&types.LegacyTx{
 		Nonce:    s.nonce.Load(),
 		To:       &to,
+		Value:    value,
 		Gas:      gasLimit,
 		GasPrice: gp.Num(),
 		Data:  	  data,
