@@ -94,7 +94,7 @@ func (s *Sender) ApproveERC20(ctx context.Context, contract, spender common.Addr
 	copy(buffer1[12:], spender.Bytes())
 	buffer2 := bytes.Repeat([]byte{255}, 32)
 	data := make([]byte, 4, 4+32*2)
-	copy(data, SendSig)
+	copy(data, ApproveSig)
 	data = append(data, buffer1...)
 	data = append(data, buffer2...)
 
