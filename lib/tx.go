@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
-	"fmt"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -128,8 +127,6 @@ func (s *Sender) SwapERC20(ctx context.Context, contract common.Address, si *Swa
 	data = append(data, buffer5...)
 	data = append(data, buffer6...)
 	data = append(data, buffer7...)
-
-	fmt.Println(hex.EncodeToString(data))
 
 	return s.sendMessage(ctx, contract, nil, data)
 }
