@@ -104,7 +104,7 @@ func main() {
 			return
 		}
 		//approve
-		err = sender.ApproveERC20(ctx, swapRouter, swapRouter)
+		err = sender.ApproveERC20(ctx, base, swapRouter)
 		if err != nil {
 			fmt.Printf("approve erc20 balance failed: %v\n", err)
 			return
