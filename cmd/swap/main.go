@@ -12,6 +12,24 @@ import (
 	"time"
 )
 
+//func main() {
+//	f, err := os.Create("./pk2.txt")
+//	if err != nil {
+//		fmt.Println(err)
+//		return
+//	}
+//	defer f.Close()
+//
+//	for i := 0; i < 500; i++ {
+//		pk, err := lib.CreateNewPk()
+//		if err != nil {
+//			fmt.Println(err)
+//		} else {
+//			f.WriteString(fmt.Sprintf("%s,%s\n", lib.PkToAddress(pk), lib.PkToHex(pk)))
+//		}
+//	}
+//}
+
 //func main()  {
 //	ctx, cancel := context.WithCancel(context.Background())
 //	defer cancel()
@@ -37,23 +55,22 @@ import (
 //	}
 //	defer pkfile.Close()
 //
+//	//usdt := common.HexToAddress("0x55d398326f99059ff775485246999027b3197955")
+//	//total := big.NewInt(40000)
+//	//total.Mul(total, big.NewInt(1000_000_000_000_000_000))
+//
+//	i := 0
 //	scanner := bufio.NewScanner(pkfile)
 //	for scanner.Scan() {
+//		i++
 //		p, err := lib.HexToPk(scanner.Text())
 //		if err != nil {
 //			fmt.Printf("invalid pk: %v\n", err)
 //			return
 //		}
 //
-//		bal, err := sender.GetERC20Balance(ctx, contract, lib.PkToAddress(p))
-//		if err != nil {
-//			fmt.Printf("get erc20 balance failed: %v\n", err)
-//			return
-//		} else {
-//			fmt.Println(bal.String())
-//		}
 //		to := lib.PkToAddress(p)
-//		si, err := lib.NewSendInfo(to, "0.001", 18)
+//		si, err := lib.NewSendInfo(to, "0.002", 18)
 //		if err != nil {
 //			fmt.Printf("invalid pk: %v\n", err)
 //			return
@@ -63,9 +80,29 @@ import (
 //			fmt.Printf("send error: %v\n", err)
 //			return
 //		} else {
-//			fmt.Printf("success send to %s\n", to)
-//			<-time.After(time.Second)
+//			fmt.Printf("%d: send 0.002 eth to %s\n", i, si.To)
 //		}
+//
+//		//to := lib.PkToAddress(p)
+//		//amount := 10 + rand.Float64() * 90
+//		//si, err := lib.NewSendInfo(to, strconv.FormatFloat(amount, 'f', 10, 64), 18)
+//		//if err != nil {
+//		//	fmt.Printf("invalid pk: %v\n", err)
+//		//	return
+//		//}
+//		//
+//		//if total.Cmp(si.Amount) < 0 {
+//		//	fmt.Println("finished")
+//		//	return
+//		//}
+//		//total.Sub(total, si.Amount)
+//		//err = sender.SendERC20(ctx, usdt, si)
+//		//if err != nil {
+//		//	fmt.Printf("invalid pk: %v\n", err)
+//		//	return
+//		//} else {
+//		//	fmt.Printf("%d: send usdt %s to %s successfully\n", i, si.Amount, si.To)
+//		//}
 //	}
 //}
 
@@ -83,8 +120,10 @@ import (
 //	}
 //	defer pkfile.Close()
 //
+//	i := 0
 //	scanner := bufio.NewScanner(pkfile)
 //	for scanner.Scan() {
+//		i++
 //		p, err := lib.HexToPk(scanner.Text())
 //		if err != nil {
 //			fmt.Printf("invalid pk: %v\n", err)
@@ -99,10 +138,10 @@ import (
 //
 //		err = sender.ApproveERC20(ctx, base, swapRouter)
 //		if err != nil {
-//			fmt.Printf("%s approve erc20 balance failed: %v\n", sender.From(), err)
-//			return
+//			fmt.Printf("%d: %s approve erc20 balance failed: %v\n", i, sender.From(), err)
+//			time.After(time.Second * 5)
 //		} else {
-//			fmt.Printf("%s approve erc20 success\n", sender.From())
+//			fmt.Printf("%d: %s approve erc20 success\n", i, sender.From())
 //		}
 //	}
 //}
@@ -122,8 +161,11 @@ func main() {
 	}
 	defer pkfile.Close()
 
+	i := 0
 	scanner := bufio.NewScanner(pkfile)
 	for scanner.Scan() {
+		<-time.After(time.Duration(60 + rand.Int63n(120)) * time.Second)
+		i++
 		p, err := lib.HexToPk(scanner.Text())
 		if err != nil {
 			fmt.Printf("invalid pk: %v\n", err)
@@ -132,14 +174,14 @@ func main() {
 
 		sender, err := lib.NewSender(ctx, url, p, 1)
 		if err != nil {
-			fmt.Printf("sender %s error: %v\n", lib.PkToAddress(p), err)
-			return
+			fmt.Printf("%d: sender %s error: %v\n", i, lib.PkToAddress(p), err)
+			continue
 		}
 		//get balance
 		bal, err := sender.GetERC20Balance(ctx, base, sender.From())
 		if err != nil {
-			fmt.Printf("%s get erc20 balance failed: %v\n", sender.From(), err)
-			return
+			fmt.Printf("%d: %s get erc20 balance failed: %v\n", i, sender.From(), err)
+			continue
 		}
 		//swap
 		err = sender.SwapERC20(ctx, swapRouter, &lib.SwapInfo{
@@ -150,11 +192,9 @@ func main() {
 			Deadline:     big.NewInt(1622476800),
 		})
 		if err != nil {
-			fmt.Printf("%s swap erc20 failed: %v\n", sender.From(), err)
-			return
+			fmt.Printf("%d: %s swap erc20 failed: %v\n", i, sender.From(), err)
 		} else {
-			fmt.Printf("%s swap erc20 success\n", sender.From())
-			<-time.After(time.Duration(300 + rand.Int63n(1700)) * time.Second)
+			fmt.Printf("%d: %s swap erc20 success\n", i, sender.From())
 		}
 	}
 }
