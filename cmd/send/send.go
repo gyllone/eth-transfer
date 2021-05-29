@@ -32,6 +32,7 @@ func main() {
 		Commands: []*cli.Command{
 			sendETHCmd,
 			sendERC20Cmd,
+			cancelCmd,
 		},
 	}
 
@@ -145,4 +146,30 @@ var sendERC20Cmd = &cli.Command{
 			return sender.SendERC20(cctx.Context, contract, si)
 		}
 	},
+}
+
+var cancelCmd = &cli.Command{
+	Name:  "cancel",
+	Usage: "cancel pending transactions",
+	Action: func(cctx *cli.Context) error {
+		if !cctx.IsSet("pk") {
+			return errors.New("--pk is not passed")
+		}
+		if !cctx.IsSet("url") {
+			return errors.New("--url is not passed")
+		}
+
+		pk, err := lib.HexToPk(cctx.String("pk"))
+		if err != nil {
+			return err
+		}
+
+		sender, err := lib.NewSender(cctx.Context, cctx.String("url"), pk, cctx.Float64("multiplier"))
+		if err != nil {
+			return err
+		} else {
+			return sender.CancelPending(cctx.Context)
+		}
+	},
+
 }

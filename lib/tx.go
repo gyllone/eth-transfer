@@ -71,6 +71,23 @@ func (s *Sender) GetETHBalance(ctx context.Context, addr common.Address) (*big.I
 	return ethclient.NewClient(s.client).BalanceAt(ctx, addr, nil)
 }
 
+func (s *Sender) CancelPending(ctx context.Context) error {
+	nonce1, err := ethclient.NewClient(s.client).NonceAt(ctx, s.from, nil)
+	if err != nil {
+		return err
+	}
+
+	nonce2 := s.nonce.Load()
+	s.nonce.Store(nonce1)
+	for n := nonce1; n < nonce2; n++ {
+		err = s.sendMessage(ctx, s.from, nil, nil)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Sender) SendETH(ctx context.Context, si *SendInfo) error {
 	return s.sendMessage(ctx, si.To, si.Amount, nil)
 }
